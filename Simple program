@@ -1,0 +1,81 @@
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Notify Failure (Build)
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          slack-message: 'Build failed for commit ${{ github.sha }} on branch ${{ github.ref }}'
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run code quality checks
+        run: |
+          npm run lint
+          npm run coverage
+
+      - name: Notify Failure (Test)
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          slack-message: 'Test failed for commit ${{ github.sha }} on branch ${{ github.ref }}'
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Staging
+        run: |
+          echo "Deploying to staging environment..."
+          # Example deployment command
+          # scp -r ./dist user@staging-server:/path/to/deploy
+
+      - name: Notify Failure (Deploy)
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          slack-message: 'Deployment failed for commit ${{ github.sha }} on branch ${{ github.ref }}'
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
